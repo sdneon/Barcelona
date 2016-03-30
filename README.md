@@ -17,7 +17,7 @@ Watch face looks similar to Barcelona's crest.
    * Grey Barça ball: disconnected.
 
 ### Screenshots
-![screenshot 1](https://raw.githubusercontent.com/sdneon/Barcelone/master/resources/images/example-image~color.png "Watch face: 9:30PM, bluetooth connected, battery not charging")
+![screenshot 1](https://raw.githubusercontent.com/sdneon/Barcelona/master/resources/images/example-image~color.png "Watch face: 9:30PM, bluetooth connected, battery not charging")
 Watch face: PM, bluetooth connected, battery level critical (<= 10%)
 
 
