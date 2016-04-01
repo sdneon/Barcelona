@@ -2,12 +2,16 @@
  * Barcelona watch face.
  *
  * About:
- * > Little 'P' in top right for PM.
- * > Added rows for: year, DDMM, 'day of week'.
- * > 'day of week' mini-bar (top-left) doubles as 'bluetooth status' indicator.
- *   > Coloured: connected; dark: disconnected.
- * > Added battery-level indicator: it's the 3rd column.
- *   > Top down orange bar: charging; bottom-up bar: charge remaining.
+ * Watch face looks similar to Barcelona's crest.
+ * > Barça colours creeps up to indicate the minutes. Hours displayed in numerals.
+ * > A little 'P' in the top right corner indicates it's PM.
+ * > Battery-level indicator:
+ *   > white card outline: charging,
+ *   > yellow card: not more than 20% charge remaining,
+ *   > red card: not more than 10% charge remaining.
+ * > Bluetooth connection indicator:
+ *   > Orange Barça ball: connected,
+ *   > Grey Barça ball: disconnected.
  **/
 #include <pebble.h>
 #include "nums.h"
@@ -31,7 +35,10 @@
 #define MARGIN 3
 
 //hour digit's thickness (stroke width)
-#define THICKNESS 10
+#define THICKNESS 15
+#define WIDTH_CAPBAND (THICKNESS + 4)
+#define THICKNESS_CAPBAND (THICKNESS * 4 / 5)
+#define WIDTH_TEETH (THICKNESS*9/10)
 
 //masks for vibes:
 #define MASKV_BTDC   0x20000
@@ -52,18 +59,35 @@ Layer *lay1Top, //cross flag & yellow-red stripes
 static BitmapLayer *layBmLogo;   //signature item in crest: orange ball
 int h = 0, m = 0, hrTens = 0, hrOnes = 0;
 static GBitmap *m_spbmItem = NULL,
-    *m_spbmItemDim = NULL;
+    *m_spbmItemDim = NULL,
+    *m_spbmBallon = NULL;
 static TextLayer *m_slaytxtPm = NULL;
 static GFont m_sFontHour = NULL;
 static char m_pchPm[] = "P";
+bool bIs24hStyle = false;
 
 static GPath *m_spathCard = NULL;
 static const GPathInfo CARD_PATH_INFO = {
   .num_points = 4,
   .points = (GPoint []) {{0, 0}, {9, 0}, {9, 15}, {0, 15}}
 };
+static GPath *m_spathNums[NUM_NUMS];
+//Captain's band:
+static GPath *m_spathCapBand = NULL;
+static const GPathInfo CAPBAND_PATH_INFO = {
+  .num_points = 4,
+  .points = (GPoint []) {{0, 0}, {WIDTH_CAPBAND, 0}, {WIDTH_CAPBAND, THICKNESS_CAPBAND}, {0, THICKNESS_CAPBAND}}
+};
+//Golden teeth:
+static GPath *m_spathTeeth = NULL;
+static const GPathInfo TEETH_PATH_INFO = {
+  .num_points = 15,
+  .points = (GPoint []) {
+      {0, 0}, {0, THICKNESS-4}, {2, THICKNESS-2}, {4, THICKNESS}, {WIDTH_TEETH-4, THICKNESS}, {WIDTH_TEETH-2, THICKNESS-2}, {WIDTH_TEETH, THICKNESS-4}, {WIDTH_TEETH, 0},
+      {WIDTH_TEETH, THICKNESS-4}, {WIDTH_TEETH+2, THICKNESS-2}, {WIDTH_TEETH+4, THICKNESS-1}, {WIDTH_TEETH*2-4, THICKNESS-1}, {WIDTH_TEETH*2-2, THICKNESS-2}, {WIDTH_TEETH*2, THICKNESS-4}, {WIDTH_TEETH*2, 0}
+  }
+};
 
-static GPath *m_spathNums[10];
 
 //PropertyAnimation *animations[5] = {0};
 //GRect to_rect[6];
@@ -145,7 +169,8 @@ static void bt_handler(bool connected) {
         vibes_enqueue_custom_pattern(VIBE_PAT_BT_LOSS);
     }
     m_bBtConnected = connected;
-    bitmap_layer_set_bitmap(layBmLogo, m_bBtConnected? m_spbmItem: m_spbmItemDim);
+    bitmap_layer_set_bitmap(layBmLogo,
+        m_bBtConnected? (h != 10? m_spbmItem: m_spbmBallon): m_spbmItemDim);
 }
 
 //
@@ -216,7 +241,6 @@ void update2Btm(Layer *layer, GContext *ctx) {
 
     //compute top y position based on mins
     int yTop = (bounds.size.h * (60-m)) / 60 - MARGIN;
-APP_LOG(APP_LOG_LEVEL_DEBUG, "m=%d, y=%d / %d", m, yTop, bounds.size.h);
     //blue-purple stripes
     //a. blue background
     GRect r = GRect(0, yTop, bounds.size.w, bounds.size.h + MARGIN);
@@ -255,22 +279,43 @@ void updateTens(Layer *layer, GContext *ctx)
     if (hrTens < 0) return;
     // Fill the path:
     //graphics_context_set_fill_color(ctx, GColorClear);
-    //gpath_draw_filled(ctx, m_spathCard);
+    //gpath_draw_filled(ctx, m_spathNums[hrTens]);
     // Stroke the path:
     graphics_context_set_stroke_width(ctx, THICKNESS);
-    graphics_context_set_stroke_color(ctx, GColorBlack);
-    gpath_draw_outline(ctx, m_spathNums[hrTens]);
+    graphics_context_set_stroke_color(ctx, bIs24hStyle? GColorOxfordBlue: GColorBlack);
+    bool bIs11 = (h == 11) || (!bIs24hStyle && (h == 23));
+    //gpath_draw_outline(ctx, m_spathNums[hrTens]);
+    gpath_draw_outline(ctx, !bIs11? m_spathNums[hrTens]: m_spathNums[10]);
 }
 
 void updateOnes(Layer *layer, GContext *ctx)
 {
+    bitmap_layer_set_bitmap(layBmLogo,
+        m_bBtConnected? (h != 10? m_spbmItem: m_spbmBallon): m_spbmItemDim);
     // Fill the path:
     //graphics_context_set_fill_color(ctx, GColorBlack); //GColorClear);
     //gpath_draw_filled(ctx, m_spathNums[hrOnes]);
     // Stroke the path:
     graphics_context_set_stroke_width(ctx, THICKNESS);
     graphics_context_set_stroke_color(ctx, GColorBlack); //GColorBlue);
-    gpath_draw_outline(ctx, m_spathNums[hrOnes]);
+    bool bIs11 = (h == 11) || (!bIs24hStyle && (h == 23));
+    gpath_draw_outline(ctx, !bIs11? m_spathNums[hrOnes]: m_spathNums[10]);
+    if (h == 8) //Captain
+    {
+        graphics_context_set_stroke_width(ctx, 1);
+        graphics_context_set_stroke_color(ctx, GColorPurple);
+        gpath_draw_outline(ctx, m_spathCapBand);
+        graphics_context_set_fill_color(ctx, GColorJazzberryJam);
+        gpath_draw_filled(ctx, m_spathCapBand);
+    }
+    else if (h == 9) //MSN S
+    {
+        graphics_context_set_stroke_width(ctx, 1);
+        graphics_context_set_stroke_color(ctx, GColorBlack); //GColorDarkGray); //GColorWhite);
+        gpath_draw_outline_open(ctx, m_spathTeeth);
+        graphics_context_set_fill_color(ctx, GColorIcterine); //GColorChromeYellow); //GColorYellow);
+        gpath_draw_filled(ctx, m_spathTeeth);
+    }
 }
 
 void updateCard(Layer *layer, GContext *ctx)
@@ -307,19 +352,21 @@ void toUpperCase(char *a_pchStr, int a_nMaxLen)
 void display_time(struct tm* tick_time) {
     h = tick_time->tm_hour;
     m = tick_time->tm_min;
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "Time is %d:%d:%d", h, m, tick_time->tm_sec);
+    //APP_LOG(APP_LOG_LEVEL_DEBUG, "Time is %d:%d:%d", h, m, tick_time->tm_sec);
 #ifdef DEBUG_MODE
     //h = m % 24;
-    //h = 21;
+    h = 11;
     //m = 30;
-    h = tick_time->tm_sec % 24;
+    //h = tick_time->tm_sec % 24;
+    //h = tick_time->tm_sec % 72 / 3; //for testing tougue-in-cheeks
+    //h = ((tick_time->tm_min * 60) + tick_time->tm_sec) % 72 / 3; //for testing tougue-in-cheeks
     m = tick_time->tm_sec;
 #endif
 
 #ifdef DEBUG_12H
-    bool bIs24hStyle = false;
+    bIs24hStyle = false;
 #else
-    bool bIs24hStyle = clock_is_24h_style();
+    bIs24hStyle = clock_is_24h_style();
 #endif //DEBUG_12H
     m_bIsAm = bIs24hStyle //don't show PM indicator in 24h style
         || (h < 12);
@@ -443,12 +490,12 @@ void handle_init(void)
     window_set_background_color(my_window, GColorBlack);
 
     //load numbers
-    GPoint shiftDown = GPoint(0, THICKNESS);
-    for (int i = 0; i < 10; ++i)
+    GPoint shift = GPoint(THICKNESS, THICKNESS);
+    for (int i = 0; i < NUM_NUMS; ++i)
     {
         m_spathNums[i] = gpath_create(&(NUMS_PATH_INFO[i]));
         // Translate:
-        gpath_move_to(m_spathNums[i], shiftDown);
+        gpath_move_to(m_spathNums[i], shift);
     }
 
     Layer *root_layer = window_get_root_layer(my_window);
@@ -462,36 +509,49 @@ void handle_init(void)
     layer_set_update_proc(lay2Btm, update2Btm);
     layer_add_child(root_layer, lay2Btm);
 
-    //create card
+    //Create card
     m_spathCard = gpath_create(&CARD_PATH_INFO);
     // Rotate 15 degrees:
     gpath_rotate_to(m_spathCard, TRIG_MAX_ANGLE / 360 * 30);
     // Translate:
     gpath_move_to(m_spathCard, GPoint(126, 105));
+    //Create Captain's Armband
+    m_spathCapBand = gpath_create(&CAPBAND_PATH_INFO);
+    // Rotate 15 degrees:
+    gpath_rotate_to(m_spathCapBand, TRIG_MAX_ANGLE / 360 * -26);
+    // Translate:
+    gpath_move_to(m_spathCapBand, GPoint(81, 78));
+    //Create Golden teeth
+    m_spathTeeth = gpath_create(&TEETH_PATH_INFO);
+    // Rotate 15 degrees:
+    gpath_rotate_to(m_spathTeeth, TRIG_MAX_ANGLE / 360 * 26);
+    // Translate:
+    gpath_move_to(m_spathTeeth, GPoint(26, 85));
 
     layCard = layer_create(frame);
     layer_set_update_proc(layCard, updateCard);
     layer_add_child(root_layer, layCard);
 
-    layLogo = layer_create(GRect(102, 111, 30, 30));
+    layLogo = layer_create(GRect(102, 111, 50, 50));
     layBmLogo = bitmap_layer_create(layer_get_bounds(layLogo));
     layer_set_update_proc(layLogo, updateLogo);
     layer_add_child(root_layer, layLogo);
     m_spbmItem = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_ITEM);
     m_spbmItemDim = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_ITEM_DIM);
+    m_spbmBallon = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BALLON);
     bitmap_layer_set_bitmap(layBmLogo, m_spbmItem);
     //bitmap_layer_set_background_color(m_spbmLayerBg, GColorClear);
     bitmap_layer_set_compositing_mode(layBmLogo, GCompOpSet);
     layer_add_child(layLogo, bitmap_layer_get_layer(layBmLogo));
 
-    layHourOnes = layer_create(
-        GRect(25, 12, frame.size.w, frame.size.h));
-    layer_set_update_proc(layHourOnes, updateOnes);
-    layer_add_child(root_layer, layHourOnes);
     layHourTens = layer_create(
-        GRect(-35, 12, frame.size.w, frame.size.h));
+        GRect(-50, 6, frame.size.w, frame.size.h));
     layer_set_update_proc(layHourTens, updateTens);
     layer_add_child(root_layer, layHourTens);
+    layHourOnes = layer_create(
+        GRect(10, 6, frame.size.w, frame.size.h));
+    layer_set_update_proc(layHourOnes, updateOnes);
+    layer_add_child(root_layer, layHourOnes);
 
     layPm = layer_create(frame);
     layer_add_child(root_layer, layPm);
@@ -550,13 +610,17 @@ void handle_deinit(void)
     layer_destroy(layLogo);
     layer_destroy(lay2Btm);
     layer_destroy(lay1Top);
+    gbitmap_destroy(m_spbmBallon);
     gbitmap_destroy(m_spbmItemDim);
     gbitmap_destroy(m_spbmItem);
     bitmap_layer_destroy(layBmLogo);
-    for (int i = 0; i < 10; ++i)
+    for (int i = 0; i < NUM_NUMS; ++i)
     {
         gpath_destroy(m_spathNums[i]);
     }
+    gpath_destroy(m_spathTeeth);
+    gpath_destroy(m_spathCapBand);
+    gpath_destroy(m_spathCard);
     fonts_unload_custom_font(m_sFontHour);
     window_destroy(my_window);
 }

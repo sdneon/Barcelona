@@ -27,12 +27,11 @@
           "type": "png",
           "name": "IMAGE_ITEM_DIM",
           "file": "images/item-dim.png"
-        }
-        ,{
-            "characterRegex": "[0-9 ]",
-            "type": "font",
-            "name": "FONT_CUSTOMA_50",
-            "file": "fonts/LemonMilk.otf"
+        },
+        {
+          "type": "png",
+          "name": "IMAGE_BALLON",
+          "file": "images/ballon.png"
         }
     ]
   },

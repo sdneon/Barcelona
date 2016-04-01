@@ -1,0 +1,251 @@
+<html lang="en">
+    <head>
+        <title>Raphaël TTF-SVG Curves to Straight Lines</title>
+         <!--
+         	<script src="https://dmitrybaranovskiy.github.io/raphael/raphael.js"></script>
+         -->
+         	<script src="raphael-min.js"></script>
+         	<script src="svg.js"></script>
+		<style media="screen">
+            body {
+                margin: 0;
+                padding: 0;
+                text-align: center;
+            }
+            h1 {
+                font-weight: 400;
+                height: 5%;
+            }
+            /*
+            #canvas {
+                height: 480px;
+                margin: 0 auto;
+                text-align: left;
+                width: 640px;
+            }
+            */
+            #code {
+                font-family: Consolas, Monaco, "Lucida Console", monospace;
+                height: 4em;
+                margin: 10px;
+                padding: 0;
+                width: 90%;
+            }
+            #run {
+                font-size: 2em;
+            }
+        </style>
+         <script>
+
+var MAX_X = 1024, MAX_Y = 768,
+	paper;
+
+function alignNumbers()
+{
+	var svgs =
+		[
+			/*0*/ "M530 1613T665 1613T918 1545T1124 1354Q1203 1244 1247 1102T1291 802T1247 502T1124 249Q1037 127 919 59T665 -10T412 58T206 249Q127 359 83 502T39 802T83 1101T206 1354Q293 1476 411 1544ZM861 1167Q774 1288 664 1288T467 1167Q362 1020 362 802T467 437Q554 316 664 316T861 437Q966 584 966 802T861 1167Z",
+			/*1*/ "M60 1474L544 1612V0H221V1185L60 1138V1474Z",
+			/*2*/ "M1214 0H69L124 184Q309 314 486 478T780 799T897 1041Q897 1144 824 1217T647 1290Q544 1290 471 1217T398 1041H75Q75 1157 119 1261T243 1446T427 1570T648 1614T869 1570T1053 1446T1176 1262T1221 1041Q1221 787 949 499Q830 374 768 323H1214V0Z",
+			/*3*/ "M693 1168L690 1166Q690 1219 652 1257T560 1295Q513 1295 478 1266T434 1193L114 1261Q148 1418 274 1520T560 1622Q749 1622 883 1488T1017 1165Q1017 1014 928 893Q936 887 939 884Q1015 811 1057 715T1099 511T1057 307T939 138Q865 66 767 26T561 -14Q379 -14 232 96Q85 207 40 384L356 465Q372 401 430 358Q487 315 562 315Q652 315 714 375Q774 432 774 513Q775 636 671 724T383 822L451 955Q572 977 632 1035T693 1168Z",
+			/*4*/ "M519 1612L867 1610L524 665H867V1290H1189V665H1351V343H1189V0H867V343H40L519 1612Z",
+			/*5*/ "M597 796V797Q484 797 427 774T274 668L95 761L177 1596H1034V1275H444L426 1086Q474 1101 505 1105T597 1109Q742 1109 873 1034T1084 829T1165 552Q1165 320 993 155Q820 -10 579 -10Q400 -10 254 85T41 329L362 432Q436 312 579 312Q683 312 756 382T829 551Q829 649 756 721Q716 760 681 778T597 796Z",
+			/*6*/ "M604 806L603 805Q503 805 432 734Q362 664 362 563Q362 463 433 392Q503 322 604 322Q704 322 775 393T846 564T775 735T604 806ZM553 1611L920 1609L642 1124Q861 1107 1013 946Q1166 784 1166 562Q1166 329 1000 164Q834 -1 601 -1Q368 -1 203 164T38 562Q38 698 101 821Q102 823 107 834T118 854Q128 874 136 888L553 1611Z",
+			/*7*/ "M50 1612H1179L670 0H332L735 1296H373V1129H50V1612Z",
+			/*8*/ "M564 1048L562 1047Q612 1047 648 1083T684 1169Q684 1218 648 1254T563 1290T478 1254T442 1169T478 1084T564 1048ZM919 906Q1086 750 1086 523Q1086 307 932 153T562 -1T192 153T38 523Q38 748 205 906Q119 1022 119 1167Q119 1350 249 1480T562 1610T875 1480T1005 1167Q1005 1022 919 906ZM562 725L559 722Q476 722 417 662Q359 603 359 520T418 378Q476 320 561 320Q643 320 704 379Q764 438 764 522Q764 605 704 665T562 725Z",
+			/*9*/ "M604 806H603Q703 806 774 877T845 1048Q845 1146 774 1219Q704 1291 603 1291T432 1219Q362 1148 362 1048T433 877T604 806ZM654 0L285 -1L563 484Q344 501 192 663Q40 826 40 1047Q40 1280 205 1446Q370 1612 603 1612T1002 1446T1168 1047Q1168 910 1105 789Q1096 774 1088 756Q1078 734 1071 724L654 0Z",
+		],
+		cnt = svgs.length,
+		raw = [], rawInfo = [],
+		output = [], output2 = [],
+		i, len,
+		minX, minY, maxX, maxY, j, pt,
+		leftmostNum, topmostNum, minCx, maxCx, minCy, maxW, maxH;
+
+	cnt = 3; //DEBUG
+	for (i = 0; i < cnt; ++i)
+	{
+		console.log('draw ', i);
+		raw.push(paper.path(svgs[i])
+			.transform("s0.1")	//reduce its size
+			//.transform("s0.1t0,-3000")	//reduce its size
+			//.transform("t0,-3000")	//move it nearer to top left
+			.scale(1, -1) //flip it right-side up
+			);
+		//find min & max of x & y
+		len = raw[i].getTotalLength() | 0; //convert to int
+		minX = 9999999999;
+		minY = 9999999999;
+		maxX = -9999999999;
+		maxY = -9999999999;
+		console.log('analyse ', i, ', len: ', len);
+		//alert('analyse ' + i + ', len: ' + len);
+		for (j = 0; j < len; ++j)
+		{
+			pt = raw[i].getPointAtLength(j);
+			if (pt.x < minX)
+			{
+				minX = pt.x;
+			}
+			if (pt.x > maxX)
+			{
+				maxX = pt.x;
+			}
+			if (pt.y < minY)
+			{
+				minY = pt.y;
+			}
+			if (pt.y > maxY)
+			{
+				maxY = pt.y;
+			}
+		}
+		rawInfo.push({
+			minX: minX, maxX: maxX,
+			minY: minY, maxY: maxY,
+			w: maxX - minX,
+			h: maxY - minY,
+			cx: (maxX + minX) / 2,
+			cy: (maxY + minY) / 2,
+			l: len
+		});
+		output.push(raw[i].getSubpath(0, len));
+		console.log(output[i]);
+		console.log('analysed ', i);
+	}
+	//find left most number
+	leftmostNum = topmostNum = 0;
+	minCx = minX = 9999999999;
+	maxCx = maxW = -9999999999;
+	minCy = minY = 9999999999;
+	maxH = -9999999999;
+	for (i = 0; i < cnt; ++i)
+	{
+		j = rawInfo[i];
+		if (j.cx < minCx)
+		{
+			leftmostNum = i;
+			minCx = j.cx;
+		}
+		if (j.cx > maxCx)
+		{
+			maxCx = j.cx;
+		}
+		if (j.cy < minCy)
+		{
+			topmostNum = i;
+			minCy = j.cy;
+		}
+		if (j.minX < minX)
+		{
+			minX = j.minX;
+		}
+		if (j.minY < minY)
+		{
+			minY = j.minY;
+		}
+		if (j.w > maxW)
+		{
+			maxW = j.w;
+		}
+		if (j.h > maxH)
+		{
+			maxH = j.h;
+		}
+	}
+	console.log('leftmostNum pos maxsize', leftmostNum, minCx|0, maxW|0,
+		'topmostNum', topmostNum, minY|0, maxH|0);
+/*
+	//this didn't translate well
+	for (i = 0; i < cnt; ++i)
+	{
+//		raw[i] = raw[i].transform('t-' + ((minCx+maxW)|0) + ',-' + ((minCy+maxH)|0));
+		//output
+	}
+*/
+	//raw[0].attr({fill: "#223fa3", stroke: "#000"});
+
+	for (j = 0; j < cnt; ++j)
+	{
+		//try processing '0's path manually
+		var reCmd = new RegExp(/([a-zA-Z])([^a-zA-Z]+)/g),
+			reCoord = new RegExp(/(-?\d+(?:.\d+)?),(-?\d+(?:.\d+)?)/g);
+		var p = '', r, coords, coordPair, val, first = false;
+		while (r = reCmd.exec(output[j]))
+		{
+			p += r[1];
+			coords = r[2];
+			first = true;
+			/*
+			while (coordPair = reCoord.exec(coords))
+			{
+				if (first)
+				{
+					first = false;
+				}
+				else
+				{
+					p += ',';
+				}
+				val = parseFloat(coordPair[1]);
+				p += val;
+				p += ',';
+				val = parseFloat(coordPair[2]);
+				p += val;
+			}
+			*/
+			coords = coords.split(',');
+			for (i = 0; i < coords.length; ++i)
+			{
+				if (i !== 0) p += ',';
+				if ((i & 1) == 0)
+				{
+					p += Math.round((parseFloat(coords[i])
+						- rawInfo[j].cx + maxCx) //centre
+						* 135 / 181 //fit to below 168px height
+						/ 10); //reduce scale by 10x
+				}
+				else
+				{
+					p += Math.round( (maxH - //counterbalance & vertical flip
+							parseFloat(coords[i]) )
+								* 135 / 181 //fit to below 168px height
+								/ 10); //reduce scale by 10x
+				}
+			}
+		}
+		console.log(p);
+		//paper.path(p).attr({fill: "#223fa3", stroke: "#000"});
+		output2.push(paper.path(p)
+			//.scale(1, -1) //flip it right-side up
+			.attr({stroke: "#223fa3"}));
+		console.log('===end===', j, output2[j].getTotalLength());
+	}
+}
+
+	window.onload = function () {
+		paper = Raphael("canvas", MAX_X, MAX_Y);
+		var btn = document.getElementById("run"),
+			cd = document.getElementById("code");
+
+		(btn.onclick = function () {
+			paper.clear();
+			paper.rect(0, 0, MAX_X, MAX_Y, 10).attr({fill: "#fff", stroke: "none"});
+			try {
+				//(new Function("paper", "window", "document", cd.value)).call(paper, paper);
+				alignNumbers();
+			} catch (e) {
+				alert(e.message || e);
+			}
+		})();
+	};
+        </script>
+    </head>
+    <body>
+        <h1>SVG Curves Test</h1>
+        <div id="canvas"></div>
+        <div><textarea id="code">paper.circle(320, 240, 60).animate({fill: "#223fa3", stroke: "#000", "stroke-width": 80, "stroke-opacity": 0.5}, 2000);</textarea></div>
+        <div><button id="run" type="button">Run</button></div>
+        <p id="copy">Demo of <a href="http://raphaeljs.com/">Raphaël</a>—JavaScript Vector Library</p>
+    </body>
+</html>
