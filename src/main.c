@@ -10,6 +10,7 @@
  *   > Top down orange bar: charging; bottom-up bar: charge remaining.
  **/
 #include <pebble.h>
+#include "nums.h"
 
 //DEBUG flags
 //#define DISABLE_CONFIG
@@ -29,6 +30,9 @@
 //min height for mins at :00 min
 #define MARGIN 3
 
+//hour digit's thickness (stroke width)
+#define THICKNESS 10
+
 //masks for vibes:
 #define MASKV_BTDC   0x20000
 #define MASKV_HOURLY 0x10000
@@ -43,14 +47,13 @@ Layer *lay1Top, //cross flag & yellow-red stripes
     *lay2Btm,   //blue-purple stripes
     *layCard,  //battery level indication: red: <= 10%, yellow <= 20%
     *layLogo,   //signature item in crest: orange ball
-    *layHour,   //huge hour digit
+    *layHourTens, *layHourOnes, //hour digits
     *layPm;     //pm indicator
 static BitmapLayer *layBmLogo;   //signature item in crest: orange ball
-int h = 0, m = 0;
+int h = 0, m = 0, hrTens = 0, hrOnes = 0;
 static GBitmap *m_spbmItem = NULL,
     *m_spbmItemDim = NULL;
-static TextLayer *m_slaytxtHourDigit = NULL,
-    *m_slaytxtPm = NULL;
+static TextLayer *m_slaytxtPm = NULL;
 static GFont m_sFontHour = NULL;
 static char m_pchPm[] = "P";
 
@@ -59,6 +62,8 @@ static const GPathInfo CARD_PATH_INFO = {
   .num_points = 4,
   .points = (GPoint []) {{0, 0}, {9, 0}, {9, 15}, {0, 15}}
 };
+
+static GPath *m_spathNums[10];
 
 //PropertyAnimation *animations[5] = {0};
 //GRect to_rect[6];
@@ -245,6 +250,29 @@ void updateLogo(Layer *layer, GContext *ctx) {
 #endif //DEBUG_BT
 }
 
+void updateTens(Layer *layer, GContext *ctx)
+{
+    if (hrTens < 0) return;
+    // Fill the path:
+    //graphics_context_set_fill_color(ctx, GColorClear);
+    //gpath_draw_filled(ctx, m_spathCard);
+    // Stroke the path:
+    graphics_context_set_stroke_width(ctx, THICKNESS);
+    graphics_context_set_stroke_color(ctx, GColorBlack);
+    gpath_draw_outline(ctx, m_spathNums[hrTens]);
+}
+
+void updateOnes(Layer *layer, GContext *ctx)
+{
+    // Fill the path:
+    //graphics_context_set_fill_color(ctx, GColorBlack); //GColorClear);
+    //gpath_draw_filled(ctx, m_spathNums[hrOnes]);
+    // Stroke the path:
+    graphics_context_set_stroke_width(ctx, THICKNESS);
+    graphics_context_set_stroke_color(ctx, GColorBlack); //GColorBlue);
+    gpath_draw_outline(ctx, m_spathNums[hrOnes]);
+}
+
 void updateCard(Layer *layer, GContext *ctx)
 {
     if (m_sBattState.charge_percent > 20)
@@ -282,32 +310,26 @@ void display_time(struct tm* tick_time) {
     APP_LOG(APP_LOG_LEVEL_DEBUG, "Time is %d:%d:%d", h, m, tick_time->tm_sec);
 #ifdef DEBUG_MODE
     //h = m % 24;
-    h = 21;
-    m = 30;
-    //h = tick_time->tm_sec % 24;
-    //m = tick_time->tm_sec;
+    //h = 21;
+    //m = 30;
+    h = tick_time->tm_sec % 24;
+    m = tick_time->tm_sec;
 #endif
 
-    m_bIsAm = (h < 12);
+#ifdef DEBUG_12H
+    bool bIs24hStyle = false;
+#else
+    bool bIs24hStyle = clock_is_24h_style();
+#endif //DEBUG_12H
+    m_bIsAm = bIs24hStyle //don't show PM indicator in 24h style
+        || (h < 12);
 
     // hour text
-    // Create a long-lived buffer
-    static char buffer[] = "12";
-    // Write the current hours and minutes into the buffer
-#ifndef DEBUG_12H
-    if (clock_is_24h_style())
-#else
-    if (false) //try 12h style
-#endif //DEBUG_MODE
+    if (bIs24hStyle)
     {
         // Use 24 hour format
-#ifndef DEBUG_MODE
-        strftime(buffer, sizeof("00"), "%H", tick_time);
-#else
-        buffer[0] = '0' + (h / 10);
-        buffer[1] = '0' + (h % 10);
-        buffer[2] = 0;
-#endif
+        hrTens = h / 10;
+        hrOnes = h % 10;
     }
     else //12h style
     {
@@ -319,25 +341,22 @@ void display_time(struct tm* tick_time) {
         // Use 12 hour format
         if (hours >= 10)
         {
-            buffer[0] = '0' + 1;
-            buffer[1] = '0' + (hours % 10);
-            buffer[2] = 0;
+            hrTens = 1;
+            hrOnes = hours % 10;
         }
         else if (hours > 0)
         {
             //no leading "0""
-            buffer[0] = '0' + hours;
-            buffer[1] = 0;
+            hrTens = -1;
+            hrOnes = hours;
         }
         else
         {
-            buffer[0] = '1';
-            buffer[1] = '2';
-            buffer[2] = 0;
+            hrTens = 1;
+            hrOnes = 2;
         }
     }
     // Display this time on the TextLayer
-    text_layer_set_text(m_slaytxtHourDigit, buffer);
     text_layer_set_text(m_slaytxtPm, m_bIsAm? NULL: m_pchPm);
 
     if ((m_nVibes & MASKV_HOURLY) //option enabled to vibrate hourly
@@ -423,6 +442,15 @@ void handle_init(void)
     window_stack_push(my_window, true);
     window_set_background_color(my_window, GColorBlack);
 
+    //load numbers
+    GPoint shiftDown = GPoint(0, THICKNESS);
+    for (int i = 0; i < 10; ++i)
+    {
+        m_spathNums[i] = gpath_create(&(NUMS_PATH_INFO[i]));
+        // Translate:
+        gpath_move_to(m_spathNums[i], shiftDown);
+    }
+
     Layer *root_layer = window_get_root_layer(my_window);
     GRect frame = layer_get_frame(root_layer);
 
@@ -456,21 +484,14 @@ void handle_init(void)
     bitmap_layer_set_compositing_mode(layBmLogo, GCompOpSet);
     layer_add_child(layLogo, bitmap_layer_get_layer(layBmLogo));
 
-    layHour = layer_create(frame);
-    layer_add_child(root_layer, layHour);
-    m_slaytxtHourDigit = text_layer_create(//frame);
-        //GRect(frame.size.w / 5, frame.size.h / 5, frame.size.w, frame.size.h));
-        GRect(10, 10, 80, 100));
-    text_layer_set_background_color(m_slaytxtHourDigit, GColorClear);
-    text_layer_set_text_color(m_slaytxtHourDigit, GColorBlack);
-    m_sFontHour = fonts_load_custom_font(resource_get_handle(
-            RESOURCE_ID_FONT_CUSTOMA_50
-            //RESOURCE_ID_FONT_CUSTOMA_70
-        ));
-    //text_layer_set_font(m_slaytxtHourDigit, fonts_get_system_font(FONT_KEY_ROBOTO_BOLD_SUBSET_49));
-    text_layer_set_font(m_slaytxtHourDigit, m_sFontHour);
-    text_layer_set_text_alignment(m_slaytxtHourDigit, GTextAlignmentRight); //GTextAlignmentCenter);
-    layer_add_child(layHour, text_layer_get_layer(m_slaytxtHourDigit));
+    layHourOnes = layer_create(
+        GRect(25, 12, frame.size.w, frame.size.h));
+    layer_set_update_proc(layHourOnes, updateOnes);
+    layer_add_child(root_layer, layHourOnes);
+    layHourTens = layer_create(
+        GRect(-35, 12, frame.size.w, frame.size.h));
+    layer_set_update_proc(layHourTens, updateTens);
+    layer_add_child(root_layer, layHourTens);
 
     layPm = layer_create(frame);
     layer_add_child(root_layer, layPm);
@@ -523,15 +544,19 @@ void handle_deinit(void)
 #endif
 
     text_layer_destroy(m_slaytxtPm);
-    text_layer_destroy(m_slaytxtHourDigit);
     layer_destroy(layPm);
-    layer_destroy(layHour);
+    layer_destroy(layHourOnes);
+    layer_destroy(layHourTens);
     layer_destroy(layLogo);
     layer_destroy(lay2Btm);
     layer_destroy(lay1Top);
     gbitmap_destroy(m_spbmItemDim);
     gbitmap_destroy(m_spbmItem);
     bitmap_layer_destroy(layBmLogo);
+    for (int i = 0; i < 10; ++i)
+    {
+        gpath_destroy(m_spathNums[i]);
+    }
     fonts_unload_custom_font(m_sFontHour);
     window_destroy(my_window);
 }
