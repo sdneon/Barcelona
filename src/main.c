@@ -88,12 +88,9 @@ static const GPathInfo TEETH_PATH_INFO = {
   }
 };
 
-
-//PropertyAnimation *animations[5] = {0};
-//GRect to_rect[6];
-
 bool m_bIsAm = false;
 
+static time_t m_nLastHourlyShake = 0;
 static int m_nVibes = DEF_VIBES;
 // Vibe pattern for loss of BT connection: ON for 400ms, OFF for 100ms, ON for 300ms, OFF 100ms, 100ms:
 static const uint32_t const VIBE_SEG_BT_LOSS[] = { 400, 200, 200, 400, 100 };
@@ -406,8 +403,10 @@ void display_time(struct tm* tick_time) {
     // Display this time on the TextLayer
     text_layer_set_text(m_slaytxtPm, m_bIsAm? NULL: m_pchPm);
 
+    time_t now = time(NULL);
     if ((m_nVibes & MASKV_HOURLY) //option enabled to vibrate hourly
-        && (m == 0)) //hourly mark reached
+        && (m == 0) //hourly mark reached
+        && (m_nLastHourlyShake != now)) //shake only once per hour (e.g. don't shake again upon flick)!
     {
         int from = (m_nVibes & MASKV_FROM) >> 8,
             to = m_nVibes & MASKV_TO;
@@ -422,6 +421,7 @@ void display_time(struct tm* tick_time) {
         }
         if (bShake)
         {
+            m_nLastHourlyShake = now;
             vibes_double_pulse();
         }
     }
@@ -465,7 +465,7 @@ void resetDisplay()
 
 static void tap_handler(AccelAxisType axis, int32_t direction)
 {
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "Reseting display!");
+    //APP_LOG(APP_LOG_LEVEL_DEBUG, "Reseting display!");
     resetDisplay();
 }
 
@@ -511,21 +511,21 @@ void handle_init(void)
 
     //Create card
     m_spathCard = gpath_create(&CARD_PATH_INFO);
-    // Rotate 15 degrees:
+    // Rotate 30 degrees clockwise:
     gpath_rotate_to(m_spathCard, TRIG_MAX_ANGLE / 360 * 30);
-    // Translate:
+    // Translate to top right quadrant of ball:
     gpath_move_to(m_spathCard, GPoint(126, 105));
     //Create Captain's Armband
     m_spathCapBand = gpath_create(&CAPBAND_PATH_INFO);
-    // Rotate 15 degrees:
+    // Rotate 26 degrees anti-clockwise:
     gpath_rotate_to(m_spathCapBand, TRIG_MAX_ANGLE / 360 * -26);
-    // Translate:
+    // Translate to right curve ('shoulder') of number '8':
     gpath_move_to(m_spathCapBand, GPoint(81, 78));
     //Create Golden teeth
     m_spathTeeth = gpath_create(&TEETH_PATH_INFO);
-    // Rotate 15 degrees:
+    // Rotate 26 degrees clockwise:
     gpath_rotate_to(m_spathTeeth, TRIG_MAX_ANGLE / 360 * 26);
-    // Translate:
+    // Translate to lower left curve ('mouth') of number '9':
     gpath_move_to(m_spathTeeth, GPoint(26, 85));
 
     layCard = layer_create(frame);
@@ -565,7 +565,7 @@ void handle_init(void)
     layer_add_child(layPm, text_layer_get_layer(m_slaytxtPm));
 
     //Example: view live log using "pebble logs --phone=192.168.1.X" command
-    //APP_LOG(APP_LOG_LEVEL_DEBUG, "digits0 %s", digits[0]);
+    //APP_LOG(APP_LOG_LEVEL_DEBUG, "parameter: %d", value);
 
     time_t now = time(NULL);
     struct tm *tick_time = localtime(&now);
