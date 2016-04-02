@@ -403,7 +403,8 @@ void display_time(struct tm* tick_time) {
     // Display this time on the TextLayer
     text_layer_set_text(m_slaytxtPm, m_bIsAm? NULL: m_pchPm);
 
-    time_t now = time(NULL);
+    time_t now = time(NULL); //seconds since epoch
+    now -= now % 60; //remove the seconds component
     if ((m_nVibes & MASKV_HOURLY) //option enabled to vibrate hourly
         && (m == 0) //hourly mark reached
         && (m_nLastHourlyShake != now)) //shake only once per hour (e.g. don't shake again upon flick)!
