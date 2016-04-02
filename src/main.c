@@ -358,6 +358,7 @@ void display_time(struct tm* tick_time) {
     //h = tick_time->tm_sec % 72 / 3; //for testing tougue-in-cheeks
     //h = ((tick_time->tm_min * 60) + tick_time->tm_sec) % 72 / 3; //for testing tougue-in-cheeks
     m = tick_time->tm_sec;
+    //m = 0; //test hourly vibration
 #endif
 
 #ifdef DEBUG_12H
