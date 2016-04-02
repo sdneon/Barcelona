@@ -28,8 +28,8 @@
 //Specify this flag to debug bluetooth indicator
 //#define DEBUG_BT
 
-//Specify this flag to debug battery indicator
-//#define DEBUG_BATT
+//Specify this flag (battery percentage) to debug battery indicator
+//#define DEBUG_BATT 8
 
 //min height for mins at :00 min
 #define MARGIN 3
@@ -433,9 +433,10 @@ void display_time(struct tm* tick_time) {
     layer_mark_dirty(window_get_root_layer(my_window));
     //layer_mark_dirty(lay1Top);
     //layer_mark_dirty(lay2Btm);
+    layer_mark_dirty(layCard);
 
 #ifdef DEBUG_BATT
-    m_sBattState.charge_percent = 8;
+    m_sBattState.charge_percent = DEBUG_BATT;
     //m_sBattState.is_charging = true;
     battery_handler(m_sBattState); //layer_mark_dirty(layCard);
 #endif //DEBUG_BATT
@@ -534,7 +535,7 @@ void handle_init(void)
     layer_set_update_proc(layCard, updateCard);
     layer_add_child(root_layer, layCard);
 
-    layLogo = layer_create(GRect(102, 111, 50, 50));
+    layLogo = layer_create(GRect(92,101, 50, 50));
     layBmLogo = bitmap_layer_create(layer_get_bounds(layLogo));
     layer_set_update_proc(layLogo, updateLogo);
     layer_add_child(root_layer, layLogo);

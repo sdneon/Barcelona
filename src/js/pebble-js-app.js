@@ -81,7 +81,7 @@ Pebble.addEventListener('webviewclosed',
 Pebble.addEventListener('showConfiguration',
     function(e) {
         try {
-            var url = 'http://yunharla.altervista.org/pebble/config-bar.html?ver=' + VERSION + '&vibes=0x';
+            var url = 'http://yunharla.altervista.org/pebble/config-gen.html?title=Barcelona&ver=' + VERSION + '&vibes=0x';
             //Send/show current config in config page:
             url += watchConfig.KEY_VIBES.toString(16);
             //console.log(url);
