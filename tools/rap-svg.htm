@@ -3,9 +3,9 @@
         <title>Raphaël TTF-SVG Curves to Straight Lines</title>
          <!--
          	<script src="https://dmitrybaranovskiy.github.io/raphael/raphael.js"></script>
+         	<script src="svg.js"></script>
          -->
          	<script src="raphael-min.js"></script>
-         	<script src="svg.js"></script>
 		<style media="screen">
             body {
                 margin: 0;
@@ -62,7 +62,7 @@ function alignNumbers()
 		minX, minY, maxX, maxY, j, pt,
 		leftmostNum, topmostNum, minCx, maxCx, minCy, maxW, maxH;
 
-	cnt = 3; //DEBUG
+	//cnt = 3; //DEBUG
 	for (i = 0; i < cnt; ++i)
 	{
 		console.log('draw ', i);
@@ -165,9 +165,9 @@ function alignNumbers()
 */
 	//raw[0].attr({fill: "#223fa3", stroke: "#000"});
 
+	//Process numbers manually to centre and resize them
 	for (j = 0; j < cnt; ++j)
 	{
-		//try processing '0's path manually
 		var reCmd = new RegExp(/([a-zA-Z])([^a-zA-Z]+)/g),
 			reCoord = new RegExp(/(-?\d+(?:.\d+)?),(-?\d+(?:.\d+)?)/g);
 		var p = '', r, coords, coordPair, val, first = false;
@@ -176,38 +176,24 @@ function alignNumbers()
 			p += r[1];
 			coords = r[2];
 			first = true;
-			/*
-			while (coordPair = reCoord.exec(coords))
-			{
-				if (first)
-				{
-					first = false;
-				}
-				else
-				{
-					p += ',';
-				}
-				val = parseFloat(coordPair[1]);
-				p += val;
-				p += ',';
-				val = parseFloat(coordPair[2]);
-				p += val;
-			}
-			*/
 			coords = coords.split(',');
 			for (i = 0; i < coords.length; ++i)
 			{
 				if (i !== 0) p += ',';
 				if ((i & 1) == 0)
 				{
-					p += Math.round((parseFloat(coords[i])
+					p +=
+						//Math.round((parseFloat(coords[i])
+						((parseFloat(coords[i])	//don't round yet
 						- rawInfo[j].cx + maxCx) //centre
 						* 135 / 181 //fit to below 168px height
 						/ 10); //reduce scale by 10x
 				}
 				else
 				{
-					p += Math.round( (maxH - //counterbalance & vertical flip
+					p +=
+						//Math.round( (maxH - //counterbalance & vertical flip
+						( (maxH - //counterbalance & vertical flip
 							parseFloat(coords[i]) )
 								* 135 / 181 //fit to below 168px height
 								/ 10); //reduce scale by 10x
@@ -220,6 +206,42 @@ function alignNumbers()
 			//.scale(1, -1) //flip it right-side up
 			.attr({stroke: "#223fa3"}));
 		console.log('===end===', j, output2[j].getTotalLength());
+	}
+
+	//
+	//TODO: rework whole algo to convert only the curved segments while retaining straight segments
+	//
+
+	//Convert number's paths to straight line segments only.
+	// Seperate each path as well. E.g. '0' has 2 paths: inner & outer ellipse.
+	for (j = 0; j < cnt; ++j)
+	{
+		var reCmd = new RegExp(/([a-zA-Z])([^a-zA-Z]+)/g),
+			reCoord = new RegExp(/(-?\d+(?:.\d+)?),(-?\d+(?:.\d+)?)/g);
+		var number = output2[j].getSubpath(0, output2[j].getTotalLength()),
+			paths = number.split('M'),
+			path, k,
+			p = '', r, coords, coordPair, val, first = false;
+		//skip 1st '' (from left of 1st 'M') in path
+		for (i = 1; i < paths.length; ++i)
+		{
+			path = paper.path('M' + paths[i]);
+			len = path.getTotalLength() | 0;
+			for (k = 0; k < len; ++k)
+			{
+				coords = path.getPointAtLength(k);
+				delete coords.alpha;
+				coords.x = Math.round(coords.x);
+				coords.y = Math.round(coords.y);
+				p += '{' + coords.x + ', ' + coords.y + '}';
+				if (k < (len - 1))
+				{
+					p += ', ';
+				}
+			}
+			console.log(p);
+			console.log('===end=== number:', j, 'path:', i, len);
+		}
 	}
 }
 
