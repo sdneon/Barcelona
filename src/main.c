@@ -287,8 +287,9 @@ void updateTens(Layer *layer, GContext *ctx)
 
 void updateOnes(Layer *layer, GContext *ctx)
 {
+    bool bIs10 = (h == 10) || (!bIs24hStyle && (h == 22));
     bitmap_layer_set_bitmap(layBmLogo,
-        m_bBtConnected? (h != 10? m_spbmItem: m_spbmBallon): m_spbmItemDim);
+        m_bBtConnected? (!bIs10? m_spbmItem: m_spbmBallon): m_spbmItemDim);
     // Fill the path:
     //graphics_context_set_fill_color(ctx, GColorBlack); //GColorClear);
     //gpath_draw_filled(ctx, m_spathNums[hrOnes]);
@@ -297,7 +298,9 @@ void updateOnes(Layer *layer, GContext *ctx)
     graphics_context_set_stroke_color(ctx, GColorBlack); //GColorBlue);
     bool bIs11 = (h == 11) || (!bIs24hStyle && (h == 23));
     gpath_draw_outline(ctx, !bIs11? m_spathNums[hrOnes]: m_spathNums[10]);
-    if (h == 8) //Captain
+    bool bIs8 = (h == 8) || (!bIs24hStyle && (h == 20));
+    bool bIs9 = (h == 9) || (!bIs24hStyle && (h == 21));
+    if (bIs8) //Captain
     {
         graphics_context_set_stroke_width(ctx, 1);
         graphics_context_set_stroke_color(ctx, GColorPurple);
@@ -305,7 +308,7 @@ void updateOnes(Layer *layer, GContext *ctx)
         graphics_context_set_fill_color(ctx, GColorJazzberryJam);
         gpath_draw_filled(ctx, m_spathCapBand);
     }
-    else if (h == 9) //MSN S
+    else if (bIs9) //MSN S
     {
         graphics_context_set_stroke_width(ctx, 1);
         graphics_context_set_stroke_color(ctx, GColorBlack); //GColorDarkGray); //GColorWhite);
@@ -317,17 +320,20 @@ void updateOnes(Layer *layer, GContext *ctx)
 
 void updateCard(Layer *layer, GContext *ctx)
 {
-    if (m_sBattState.charge_percent > 20)
+    bool bIsLow = m_sBattState.charge_percent <= 20;
+    if (bIsLow)
     {
-        return;
+        // Fill the path:
+        graphics_context_set_fill_color(ctx, m_sBattState.charge_percent <= 10? GColorRed: GColorYellow);
+        gpath_draw_filled(ctx, m_spathCard);
     }
-    // Fill the path:
-    graphics_context_set_fill_color(ctx, m_sBattState.charge_percent <= 10? GColorRed: GColorYellow);
-    gpath_draw_filled(ctx, m_spathCard);
-    // Stroke the path:
-    //graphics_context_set_stroke_width(ctx, 2);
-    graphics_context_set_stroke_color(ctx, m_sBattState.is_charging? GColorWhite: GColorBlack);
-    gpath_draw_outline(ctx, m_spathCard);
+    if (bIsLow || m_sBattState.is_charging)
+    {
+        // Stroke the path:
+        //graphics_context_set_stroke_width(ctx, 2);
+        graphics_context_set_stroke_color(ctx, m_sBattState.is_charging? GColorWhite: GColorBlack);
+        gpath_draw_outline(ctx, m_spathCard);
+    }
 }
 
 /**
